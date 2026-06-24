@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard | AI Scheduler</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <nav>
+    <h2>AI Scheduler</h2>
+    <div>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/schedule">Create Schedule</a>
+      <a href="/logout">Logout</a>
+    </div>
+  </nav>
+
+  <main>
+    <h1>Welcome, <%= user.username %>!</h1>
+    <p class="subtitle">Here are your saved AI schedules.</p>
+
+    <a class="main-button" href="/schedule">Create New Schedule</a>
+
+    <section class="cards">
+      <% if (schedules.length === 0) { %>
+        <p>No schedules yet. Create your first schedule.</p>
+      <% } %>
+
+      <% schedules.forEach(schedule => { %>
+        <div class="card">
+          <h3>Schedule created on <%= schedule.created_at %></h3>
+
+          <h4>Your Tasks:</h4>
+          <p><%= schedule.task_input %></p>
+
+          <h4>AI Schedule:</h4>
+          <pre><%= schedule.ai_schedule %></pre>
+
+          <form action="/delete/<%= schedule.id %>" method="POST">
+            <button class="delete-button" type="submit">Delete</button>
+          </form>
+        </div>
+      <% }) %>
+    </section>
+  </main>
+</body>
+</html>

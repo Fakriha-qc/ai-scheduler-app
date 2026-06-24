@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Create Schedule | AI Scheduler</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <nav>
+    <h2>AI Scheduler</h2>
+    <div>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/schedule">Create Schedule</a>
+      <a href="/logout">Logout</a>
+    </div>
+  </nav>
+
+  <main>
+    <h1>Create an AI Schedule</h1>
+    <p class="subtitle">Enter your tasks and Gemini will organize your time.</p>
+
+    <% if (error) { %>
+      <p class="error"><%= error %></p>
+    <% } %>
+
+    <form class="schedule-form" action="/schedule" method="POST">
+      <label>Tasks you need to finish</label>
+      <textarea name="tasks" rows="6" placeholder="Example: study for exam, finish web project, laundry, apply to jobs" required></textarea>
+
+      <label>Available time</label>
+      <input type="text" name="availableTime" placeholder="Example: 3 PM to 10 PM" required>
+
+      <label>Deadline</label>
+      <input type="text" name="deadline" placeholder="Example: tonight, Friday, June 30" required>
+
+      <button type="submit">Generate Schedule</button>
+    </form>
+
+    <% if (result) { %>
+      <div class="result-box">
+        <h2>Your AI Schedule</h2>
+        <pre><%= result %></pre>
+      </div>
+    <% } %>
+  </main>
+</body>
+</html>

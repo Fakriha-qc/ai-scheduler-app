@@ -137,7 +137,7 @@ Return the answer in a simple organized format with time blocks, priorities, and
 `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-lite",
+      model: "gemini-2.5-flash",
       contents: prompt
     });
 

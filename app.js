@@ -10,7 +10,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const ai = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY
+  apiKey: process.env.GEMINI_API_KEY
 });
 
 app.set("view engine", "ejs");
@@ -19,114 +19,108 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
 app.use(
-    session({
-        secret: process.env.SESSION_SECRET || "defaultsecret",
-        resave: false,
-        saveUninitialized: false
-    })
+  session({
+    secret: process.env.SESSION_SECRET || "defaultsecret",
+    resave: false,
+    saveUninitialized: false
+  })
 );
 
 function requireLogin(req, res, next) {
-    if (!req.session.user) {
-        return res.redirect("/signin");
-    }
-    next();
+  if (!req.session.user) {
+    return res.redirect("/signin");
+  }
+  next();
 }
 
 app.get("/", (req, res) => {
-    res.redirect("/signin");
+  res.redirect("/signin");
 });
 
 app.get("/signup", (req, res) => {
-    res.render("signup", { error: null });
+  res.render("signup", { error: null });
 });
 
 app.post("/signup", async (req, res) => {
-    const { username, email, password } = req.body;
+  const { username, email, password } = req.body;
 
-    if (!username || !email || !password) {
-        return res.render("signup", { error: "Please fill in all fields." });
-    }
+  if (!username || !email || !password) {
+    return res.render("signup", { error: "Please fill in all fields." });
+  }
 
-    try {
-        const hashedPassword = await bcrypt.hash(password, 10);
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-        db.run(
-            "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
-            [username, email, hashedPassword],
-            function (err) {
-                if (err) {
-                    return res.render("signup", {
-                        error: "Email already exists. Please use another email."
-                    });
-                }
+    const stmt = db.prepare(
+      "INSERT INTO users (username, email, password) VALUES (?, ?, ?)"
+    );
 
-                res.redirect("/signin");
-            }
-        );
-    } catch (error) {
-        res.render("signup", { error: "Something went wrong." });
-    }
+    stmt.run(username, email, hashedPassword);
+
+    res.redirect("/signin");
+  } catch (error) {
+    res.render("signup", {
+      error: "Email already exists. Please use another email."
+    });
+  }
 });
 
 app.get("/signin", (req, res) => {
-    res.render("signin", { error: null });
+  res.render("signin", { error: null });
 });
 
-app.post("/signin", (req, res) => {
-    const { email, password } = req.body;
+app.post("/signin", async (req, res) => {
+  const { email, password } = req.body;
 
-    db.get("SELECT * FROM users WHERE email = ?", [email], async (err, user) => {
-        if (err || !user) {
-            return res.render("signin", { error: "Invalid email or password." });
-        }
+  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
 
-        const passwordMatch = await bcrypt.compare(password, user.password);
+  if (!user) {
+    return res.render("signin", { error: "Invalid email or password." });
+  }
 
-        if (!passwordMatch) {
-            return res.render("signin", { error: "Invalid email or password." });
-        }
+  const passwordMatch = await bcrypt.compare(password, user.password);
 
-        req.session.user = {
-            id: user.id,
-            username: user.username,
-            email: user.email
-        };
+  if (!passwordMatch) {
+    return res.render("signin", { error: "Invalid email or password." });
+  }
 
-        res.redirect("/dashboard");
-    });
+  req.session.user = {
+    id: user.id,
+    username: user.username,
+    email: user.email
+  };
+
+  res.redirect("/dashboard");
 });
 
 app.get("/dashboard", requireLogin, (req, res) => {
-    db.all(
-        "SELECT * FROM schedules WHERE user_id = ? ORDER BY created_at DESC",
-        [req.session.user.id],
-        (err, schedules) => {
-            res.render("dashboard", {
-                user: req.session.user,
-                schedules: schedules || []
-            });
-        }
-    );
+  const schedules = db
+    .prepare("SELECT * FROM schedules WHERE user_id = ? ORDER BY created_at DESC")
+    .all(req.session.user.id);
+
+  res.render("dashboard", {
+    user: req.session.user,
+    schedules: schedules
+  });
 });
 
 app.get("/schedule", requireLogin, (req, res) => {
-    res.render("schedule", { user: req.session.user, result: null, error: null });
+  res.render("schedule", { user: req.session.user, result: null, error: null });
 });
 
 app.post("/schedule", requireLogin, async (req, res) => {
-    const { tasks, availableTime, deadline } = req.body;
+  const { tasks, availableTime, deadline } = req.body;
 
-    if (!tasks || !availableTime || !deadline) {
-        return res.render("schedule", {
-            user: req.session.user,
-            result: null,
-            error: "Please complete all fields."
-        });
-    }
+  if (!tasks || !availableTime || !deadline) {
+    return res.render("schedule", {
+      user: req.session.user,
+      result: null,
+      error: "Please complete all fields."
+    });
+  }
 
-    try {
-        const prompt = `
+  try {
+    const prompt = `
 You are an AI scheduling assistant.
 Create a clear daily schedule for a student.
 
@@ -142,50 +136,48 @@ ${deadline}
 Return the answer in a simple organized format with time blocks, priorities, and short advice.
 `;
 
-        const response = await ai.models.generateContent({
-            model: "gemini-flash-latest",
-            contents: prompt
-        });
+    const response = await ai.models.generateContent({
+      model: "gemini-flash-latest",
+      contents: prompt
+    });
 
-        const aiSchedule = response.text;
+    const aiSchedule = response.text;
 
-        db.run(
-            "INSERT INTO schedules (user_id, task_input, ai_schedule) VALUES (?, ?, ?)",
-            [req.session.user.id, tasks, aiSchedule]
-        );
+    db.prepare(
+      "INSERT INTO schedules (user_id, task_input, ai_schedule) VALUES (?, ?, ?)"
+    ).run(req.session.user.id, tasks, aiSchedule);
 
-        res.render("schedule", {
-            user: req.session.user,
-            result: aiSchedule,
-            error: null
-        });
-    } catch (error) {
-        console.error("Gemini Error:", error);
+    res.render("schedule", {
+      user: req.session.user,
+      result: aiSchedule,
+      error: null
+    });
+  } catch (error) {
+    console.error("Gemini Error:", error);
 
-        res.render("schedule", {
-            user: req.session.user,
-            result: null,
-            error: "AI schedule could not be generated. Check the terminal error."
-        });
-    }
+    res.render("schedule", {
+      user: req.session.user,
+      result: null,
+      error: "AI schedule could not be generated. Please try again."
+    });
+  }
 });
 
 app.post("/delete/:id", requireLogin, (req, res) => {
-    db.run(
-        "DELETE FROM schedules WHERE id = ? AND user_id = ?",
-        [req.params.id, req.session.user.id],
-        () => {
-            res.redirect("/dashboard");
-        }
-    );
+  db.prepare("DELETE FROM schedules WHERE id = ? AND user_id = ?").run(
+    req.params.id,
+    req.session.user.id
+  );
+
+  res.redirect("/dashboard");
 });
 
 app.get("/logout", (req, res) => {
-    req.session.destroy(() => {
-        res.redirect("/signin");
-    });
+  req.session.destroy(() => {
+    res.redirect("/signin");
+  });
 });
 
 app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
